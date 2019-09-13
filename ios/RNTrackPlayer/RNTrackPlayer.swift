@@ -261,6 +261,8 @@ public class RNTrackPlayer: RCTEventEmitter {
             }
             
             try? player.add(items: tracks, at: insertIndex)
+            let audioItem = DefaultAudioItem(audioUrl: "https://dev-cdn.stand.fm/storiesBackgroundVideos/01DMMQB3N23T4M5AHZP9CRE4K0.mp4", sourceType: .stream)
+            try? subPlayer.load(item: audioItem, playWhenReady: false)
         } else {
             if (player.currentItem == nil && tracks.count > 0) {
                 sendEvent(withName: "playback-track-changed", body: [
@@ -271,6 +273,8 @@ public class RNTrackPlayer: RCTEventEmitter {
             }
             
             try? player.add(items: tracks, playWhenReady: false)
+            let audioItem = DefaultAudioItem(audioUrl: "https://dev-cdn.stand.fm/storiesBackgroundVideos/01DMMQB3N23T4M5AHZP9CRE4K0.mp4", sourceType: .stream)
+            try? subPlayer.load(item: audioItem, playWhenReady: false)
         }
         
         resolve(NSNull())
@@ -368,11 +372,7 @@ public class RNTrackPlayer: RCTEventEmitter {
         print("Starting/Resuming playback")
         try? AVAudioSession.sharedInstance().setActive(true)
         player.play()
-        do {
-          let audioItem = DefaultAudioItem(audioUrl: "https://dev-cdn.stand.fm/audios/01DMB5WBV89YC5535J67PKPNRM.m4a", sourceType: .stream)
-          subPlayer.load(item: audioItem, playWhenReady: true)
-        } catch (_) {
-        }
+        subPlayer.play()
         resolve(NSNull())
     }
     
