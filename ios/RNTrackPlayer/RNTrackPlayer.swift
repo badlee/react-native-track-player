@@ -150,7 +150,16 @@ public class RNTrackPlayer: RCTEventEmitter {
                     ])
             }
         }
-        
+
+        subPlayer.event.playbackEnd.addListener(self) { [weak self] reason in
+          guard let `self` = self else { return }
+
+          if reason == .playedUntilEnd {
+            self.subPlayer.seek(to: 0)
+            self.subPlayer.play()
+          }
+        }
+
         resolve(NSNull())
     }
     
