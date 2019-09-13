@@ -368,8 +368,11 @@ public class RNTrackPlayer: RCTEventEmitter {
         print("Starting/Resuming playback")
         try? AVAudioSession.sharedInstance().setActive(true)
         player.play()
-        let audioItem = DefaultAudioItem(audioUrl: "https://dev-cdn.stand.fm/audios/01DMB5WBV89YC5535J67PKPNRM.m4a", sourceType: .stream)
-        subPlayer.load(item: audioItem, playWhenReady: true)
+        do {
+          let audioItem = DefaultAudioItem(audioUrl: "https://dev-cdn.stand.fm/audios/01DMB5WBV89YC5535J67PKPNRM.m4a", sourceType: .stream)
+          subPlayer.load(item: audioItem, playWhenReady: true)
+        } catch (_) {
+        }
         resolve(NSNull())
     }
     
