@@ -19,6 +19,12 @@ public class RNTrackPlayer: RCTEventEmitter {
         player.bufferDuration = 1
         return player
     }()
+
+    private lazy var subPlayer: AudioPlayer = {
+        let subPlayer = AudioPlayer()
+        subPlayer.bufferDuration = 1
+        return subPlayer
+    }()
     
     // MARK: - Lifecycle Methods
     
@@ -362,6 +368,8 @@ public class RNTrackPlayer: RCTEventEmitter {
         print("Starting/Resuming playback")
         try? AVAudioSession.sharedInstance().setActive(true)
         player.play()
+        let audioItem = DeafultAudioItem(audioUrl: "https://dev-cdn.stand.fm/audios/01DMB5WBV89YC5535J67PKPNRM.m4a", sourceType: .stream)
+        subPlayer.load(item: audioItem, playWhenReady: true)
         resolve(NSNull())
     }
     
@@ -369,6 +377,7 @@ public class RNTrackPlayer: RCTEventEmitter {
     public func pause(resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
         print("Pausing playback")
         player.pause()
+        subPlayer.pause()
         resolve(NSNull())
     }
     
@@ -376,6 +385,7 @@ public class RNTrackPlayer: RCTEventEmitter {
     public func stop(resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
         print("Stopping playback")
         player.stop()
+        subPlayer.stop()
         resolve(NSNull())
     }
     
