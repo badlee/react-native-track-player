@@ -261,7 +261,7 @@ public class RNTrackPlayer: RCTEventEmitter {
             }
             
             try? player.add(items: tracks, at: insertIndex)
-            let audioItem = DefaultAudioItem(audioUrl: "https://dev-cdn.stand.fm/storiesBackgroundVideos/01DMMQB3N23T4M5AHZP9CRE4K0.mp4", sourceType: .stream)
+            let audioItem = DefaultAudioItem(audioUrl: "https://dev-cdn.stand.fm/audios/01DMMQB279KBKYNPG16VSKPY7F.m4a", sourceType: .stream)
             try? subPlayer.load(item: audioItem, playWhenReady: false)
         } else {
             if (player.currentItem == nil && tracks.count > 0) {
@@ -273,7 +273,7 @@ public class RNTrackPlayer: RCTEventEmitter {
             }
             
             try? player.add(items: tracks, playWhenReady: false)
-            let audioItem = DefaultAudioItem(audioUrl: "https://dev-cdn.stand.fm/storiesBackgroundVideos/01DMMQB3N23T4M5AHZP9CRE4K0.mp4", sourceType: .stream)
+            let audioItem = DefaultAudioItem(audioUrl: "https://dev-cdn.stand.fm/audios/01DMMQB279KBKYNPG16VSKPY7F.m4a", sourceType: .stream)
             try? subPlayer.load(item: audioItem, playWhenReady: false)
         }
         
