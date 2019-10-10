@@ -26,12 +26,12 @@ class AVPlayerWrapper: AVPlayerWrapperProtocol {
     
     // MARK: - Properties
     
-    let avPlayer: AVPlayer
+    var avPlayer: AVPlayer
     let playerObserver: AVPlayerObserver
     let playerTimeObserver: AVPlayerTimeObserver
     let playerItemNotificationObserver: AVPlayerItemNotificationObserver
     let playerItemObserver: AVPlayerItemObserver
-
+    
     /**
      True if the last call to load(from:playWhenReady) had playWhenReady=true.
      */
@@ -46,10 +46,12 @@ class AVPlayerWrapper: AVPlayerWrapperProtocol {
         }
     }
     
-    public init(avPlayer: AVPlayer = AVPlayer()) {
-        self.avPlayer = avPlayer
-        self.playerObserver = AVPlayerObserver(player: avPlayer)
-        self.playerTimeObserver = AVPlayerTimeObserver(player: avPlayer, periodicObserverTimeInterval: timeEventFrequency.getTime())
+    public init() {
+        self.avPlayer = AVPlayer()
+        self.playerObserver = AVPlayerObserver()
+        self.playerObserver.player = avPlayer
+        self.playerTimeObserver = AVPlayerTimeObserver(periodicObserverTimeInterval: timeEventFrequency.getTime())
+        self.playerTimeObserver.player = avPlayer
         self.playerItemNotificationObserver = AVPlayerItemNotificationObserver()
         self.playerItemObserver = AVPlayerItemObserver()
         
@@ -75,6 +77,8 @@ class AVPlayerWrapper: AVPlayerWrapperProtocol {
         return avPlayer.currentItem
     }
     
+    var _pendingAsset: AVAsset? = nil
+    
     var automaticallyWaitsToMinimizeStalling: Bool {
         get { return avPlayer.automaticallyWaitsToMinimizeStalling }
         set { avPlayer.automaticallyWaitsToMinimizeStalling = newValue }
@@ -84,7 +88,7 @@ class AVPlayerWrapper: AVPlayerWrapperProtocol {
         let seconds = avPlayer.currentTime().seconds
         return seconds.isNaN ? 0 : seconds
     }
-
+    
     var duration: TimeInterval {
         if let seconds = currentItem?.asset.duration.seconds, !seconds.isNaN {
             return seconds
@@ -100,9 +104,9 @@ class AVPlayerWrapper: AVPlayerWrapperProtocol {
     }
     
     var bufferedPosition: TimeInterval {
-	return currentItem?.loadedTimeRanges.last?.timeRangeValue.end.seconds ?? 0
+        return currentItem?.loadedTimeRanges.last?.timeRangeValue.end.seconds ?? 0
     }
-
+    
     weak var delegate: AVPlayerWrapperDelegate? = nil
     
     var bufferDuration: TimeInterval = 0
@@ -112,7 +116,7 @@ class AVPlayerWrapper: AVPlayerWrapperProtocol {
             playerTimeObserver.periodicObserverTimeInterval = timeEventFrequency.getTime()
         }
     }
-
+    
     var rate: Float {
         get { return avPlayer.rate }
         set { avPlayer.rate = newValue }
@@ -142,6 +146,8 @@ class AVPlayerWrapper: AVPlayerWrapperProtocol {
             pause()
         case .paused:
             play()
+        @unknown default:
+            fatalError("Unknown AVPlayer.timeControlStatus")
         }
     }
     
@@ -161,22 +167,63 @@ class AVPlayerWrapper: AVPlayerWrapperProtocol {
             self.delegate?.AVWrapper(seekTo: Int(seconds), didFinish: finished)
         }
     }
-
+    
+    
+    
     func load(from url: URL, playWhenReady: Bool) {
         reset(soft: true)
         _playWhenReady = playWhenReady
 
-        // Set item
-        let currentAsset = AVURLAsset(url: url)
-        let currentItem = AVPlayerItem(asset: currentAsset, automaticallyLoadedAssetKeys: [Constants.assetPlayableKey])
-        currentItem.preferredForwardBufferDuration = bufferDuration
-        avPlayer.replaceCurrentItem(with: currentItem)
-
-        // Register for events
-        playerTimeObserver.registerForBoundaryTimeEvents()
-        playerObserver.startObserving()
-        playerItemNotificationObserver.startObserving(item: currentItem)
-        playerItemObserver.startObserving(item: currentItem)
+        if currentItem?.status == .failed {
+            recreateAVPlayer()
+        }
+        
+        self._pendingAsset = AVURLAsset(url: url)
+        
+        if let pendingAsset = _pendingAsset {
+            self._state = .loading
+            pendingAsset.loadValuesAsynchronously(forKeys: [Constants.assetPlayableKey], completionHandler: { [weak self] in
+                
+                guard let self = self else {
+                    return
+                }
+                
+                var error: NSError? = nil
+                let status = pendingAsset.statusOfValue(forKey: Constants.assetPlayableKey, error: &error)
+                
+                DispatchQueue.main.async {
+                    let isPendingAsset = (self._pendingAsset != nil && pendingAsset.isEqual(self._pendingAsset))
+                    switch status {
+                    case .loaded:
+                        if isPendingAsset {
+                            let currentItem = AVPlayerItem(asset: pendingAsset, automaticallyLoadedAssetKeys: [Constants.assetPlayableKey])
+                            currentItem.preferredForwardBufferDuration = self.bufferDuration
+                            self.avPlayer.replaceCurrentItem(with: currentItem)
+                            
+                            // Register for events
+                            self.playerTimeObserver.registerForBoundaryTimeEvents()
+                            self.playerObserver.startObserving()
+                            self.playerItemNotificationObserver.startObserving(item: currentItem)
+                            self.playerItemObserver.startObserving(item: currentItem)
+                        }
+                        break
+                        
+                    case .failed:
+                        if isPendingAsset {
+                            self.delegate?.AVWrapper(failedWithError: error)
+                            self._pendingAsset = nil
+                        }
+                        break
+                        
+                    case .cancelled:
+                        break
+                        
+                    default:
+                        break
+                    }
+                }
+            })
+        }
     }
     
     func load(from url: URL, playWhenReady: Bool, initialTime: TimeInterval?) {
@@ -192,9 +239,22 @@ class AVPlayerWrapper: AVPlayerWrapperProtocol {
         playerTimeObserver.unregisterForBoundaryTimeEvents()
         playerItemNotificationObserver.stopObservingCurrentItem()
         
+        self._pendingAsset?.cancelLoading()
+        self._pendingAsset = nil
+        
         if !soft {
             avPlayer.replaceCurrentItem(with: nil)
         }
+    }
+    
+    /// Will recreate the AVPlayer instance. Used when the current one fails.
+    private func recreateAVPlayer() {
+        let player = AVPlayer()
+        playerObserver.player = player
+        playerTimeObserver.player = player
+        playerTimeObserver.registerForPeriodicTimeEvents()
+        avPlayer = player
+        delegate?.AVWrapperDidRecreateAVPlayer()
     }
     
 }
@@ -213,9 +273,11 @@ extension AVPlayerWrapper: AVPlayerObserverDelegate {
                 self._state = .paused
             }
         case .waitingToPlayAtSpecifiedRate:
-            self._state = .loading
+            self._state = .buffering
         case .playing:
             self._state = .playing
+        @unknown default:
+            break
         }
     }
     
@@ -223,22 +285,25 @@ extension AVPlayerWrapper: AVPlayerObserverDelegate {
         switch status {
             
         case .readyToPlay:
-            self._state = .ready
             
-            if let initialTime = _initialTime {
-                self.seek(to: initialTime)
-            }
-            else if _playWhenReady {
+            if _playWhenReady {
                 self.play()
             }
-            
+            else {
+                self._state = .ready
+                if let initialTime = _initialTime {
+                    self.seek(to: initialTime)
+                }
+            }
             break
-
+            
         case .failed:
             self.delegate?.AVWrapper(failedWithError: avPlayer.error)
             break
             
         case .unknown:
+            break
+        @unknown default:
             break
         }
     }
