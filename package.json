@@ -1,6 +1,6 @@
 {
-  "name": "react-native-track-player",
-  "version": "1.2.3",
+  "name": "zixx-player",
+  "version": "0.0.1",
   "description": "A fully fledged audio module created for music apps",
   "contributors": [
     {
@@ -16,6 +16,10 @@
     {
       "name": "Dustin Bahr",
       "email": "dustin@curiousmedia.com"
+    },
+    {
+      "name": "Badinga Ulrich",
+      "email": "badinga.ulrich@gmail.com"
     }
   ],
   "keywords": [
